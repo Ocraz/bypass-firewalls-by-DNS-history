@@ -34,6 +34,10 @@ case $key in
     checkall=1
     shift # past argument
     ;;
+    -100)
+    sure=1
+    shift # past argument
+    ;;
     *)    # unknown option
     POSITIONAL+=("$1") # save it in an array for later
     shift # past argument
@@ -47,10 +51,11 @@ set -- "${POSITIONAL[@]}" # restore positional parameters
 ################################################################################
 if [ -z "$domain" ] ; then
 	  echo 'usage: ./bypass-firewalls-by-DNS-history.sh -d example.com'
-    echo '-d --domain: domain to bypass'
-    echo "-o --outputfile: output file with IP's only"
-    echo '-l --listsubdomains: list with subdomains for extra coverage'
-    echo '-a --checkall: Check all subdomains for a WAF bypass'
+    echo '-d --domain           : domain to bypass'
+    echo '-o --outputfile       : output file with IP addresses only'
+    echo '-l --listsubdomains   : list with subdomains for extra coverage'
+    echo '-a --checkall         : Check all subdomains for a WAF bypass'
+    echo '-100                  : Only show/export IP addresses when 100% sure'
     exit 0
 fi
 ################################################################################
@@ -125,12 +130,14 @@ if [[ $biggestsize -ne 0  ]]; then
   difference=$(( $(sdiff -B -b -s $file1 $file2 | wc -l) ))
   confidence_percentage=$(( 100 * (( $biggestsize - ${difference#-} )) / $biggestsize ))
   if [[ $confidence_percentage -gt 0 ]]; then
-    echo "$ip" >> "$outfile"
-    if [[ $checkall -le 0 ]];then
-      echo -e "$protocol://$ip | $confidence_percentage % | $(curl --silent https://ipinfo.io/$ip/org )" >>  /tmp/waf-bypass-output-$domain.txt
-    else
-      echo -e "$protocol://$domain | $ip | $confidence_percentage % | $(curl --silent https://ipinfo.io/$ip/org )" >>  /tmp/waf-bypass-output-$domain.txt
-    fi
+	if [[ $confidence_percentage -eq 100 ]] && [[ $sure -eq 1 ]] || [[ $sure -eq 0 ]]; then
+	    echo "$ip" >> "$outfile"
+	    if [[ $checkall -le 0 ]];then
+	      echo -e "$protocol://$ip | $confidence_percentage % | $(curl --silent https://ipinfo.io/$ip/org )" >>  /tmp/waf-bypass-output-$domain.txt
+	    else
+	      echo -e "$protocol://$domain | $ip | $confidence_percentage % | $(curl --silent https://ipinfo.io/$ip/org )" >>  /tmp/waf-bypass-output-$domain.txt
+	    fi
+	fi
   fi
 
   # ---- Debugging Info ----
